@@ -2,12 +2,13 @@ project:
   type: book
 
 book:
-  title: "Book_WorkingData"
-  author: "Norah Jones"
+  title: "Working with research data"
+  author: "Daniel Manrique-Castano"
   date: "2024-07-17"
   chapters:
     - index.qmd
     - intro.qmd
+    - FileTypes.qmd
     - summary.qmd
     - references.qmd
 
@@ -19,5 +20,5 @@ format:
   pdf:
     documentclass: scrreprt
 
-editor: visual
+editor: source
 
