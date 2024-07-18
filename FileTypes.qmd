@@ -1,4 +1,23 @@
----
-title: "File types"
----
+# Working with different file types
 
+
+## Doing microscopy: .czi and .tiff files
+
+
+**Author:** Daniel Manrique-Castano, Ph.D. 
+            Research data curation officer
+            Digital Research Alliance of Canada
+
+Researchers doing microscopy in biology and other life sciences have the challenge of extracting accurate information from images. File formats, such as .czi and .tiff contain complex metadata and multi-dimensional image data the user can take advantage of. Here, we explore generalities on how to handle these microscopy file formats, including loading, plotting, exploring properties and metadata, and converting between formats using FIJI, Python and R.
+
+### Working with .czi files
+
+Carl Zeiss Image (CZI) files are a common format used in microscopy to store image data along with a rich array of metadata. For complete handling of .czi files, Carl Zeiss Image have a proprietary software called Zen. The user can download a free *lite* version of this [software](https://www.zeiss.com/microscopy/en/products/software/zeiss-zen-lite.html?gad_source=1&gclid=Cj0KCQjw-uK0BhC0ARIsANQtgGM1rOCj1UdLxkHrZEtAv83kh2u12QfvYMkaJL9FMh_jhwK7Pp0ZZm0aAuj4EALw_wcB) to perform basic visualization task and explore the technical metadata, that is, the parameters employed to capture the image.
+
+However, [FIJI](https://imagej.net/software/fiji/) through the **Bio-Formats** plugin is a straight forward manner of handling .czi files   
+
+
+To work with .czi files in Python, we can use the czifile library, which allows us to read and manipulate these files. Let's start by loading a .czi file and exploring its contents.
+
+Installing the czifile Library
+First, you need to install the czifile library. You can do this using pip:
