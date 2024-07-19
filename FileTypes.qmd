@@ -1,12 +1,8 @@
 # Working with different file types
 
-
 ## Doing microscopy: .czi and .tiff files
 
-
-**Author:** Daniel Manrique-Castano, Ph.D. 
-            Research data curation officer
-            Digital Research Alliance of Canada
+**Author:** Daniel Manrique-Castano, Ph.D. Research data curation officer Digital Research Alliance of Canada
 
 Researchers doing microscopy in biology and other life sciences have the challenge of extracting accurate information from images. File formats, such as .czi and .tiff contain complex metadata and multi-dimensional image data the user can take advantage of. Here, we explore generalities on how to handle these microscopy file formats, including loading, plotting, exploring properties and metadata, and converting between formats using FIJI, Python and R.
 
@@ -14,10 +10,61 @@ Researchers doing microscopy in biology and other life sciences have the challen
 
 Carl Zeiss Image (CZI) files are a common format used in microscopy to store image data along with a rich array of metadata. For complete handling of .czi files, Carl Zeiss Image have a proprietary software called Zen. The user can download a free *lite* version of this [software](https://www.zeiss.com/microscopy/en/products/software/zeiss-zen-lite.html?gad_source=1&gclid=Cj0KCQjw-uK0BhC0ARIsANQtgGM1rOCj1UdLxkHrZEtAv83kh2u12QfvYMkaJL9FMh_jhwK7Pp0ZZm0aAuj4EALw_wcB) to perform basic visualization task and explore the technical metadata, that is, the parameters employed to capture the image.
 
-However, [FIJI](https://imagej.net/software/fiji/) through the **Bio-Formats** plugin is a straight forward manner of handling .czi files   
+However, [FIJI](https://imagej.net/software/fiji/) through the **Bio-Formats** plugin is a straight forward manner for handling .czi files. Drag and drop .czi files to the FIJI bar automatically calls the **Bio-Formats Importer** function to render the image.
 
+::: {#fig-Fiji_Bioformats layout="[45,-10,45]"}
+![Bio-Formtas Importer GUI](images/FileTypes/BioFormats_Import.png){#fig-BioFormats1}
+
+![Bio-Formtas metadata](images/FileTypes/BioFormats_Metadata2.png){#fig-BioFormats2}
+
+Importing .czi files in FIJI
+:::
+
+By checking the *Display metadata* or *Display OME-XML metadta* the opening image will be accompanied by two windows displaying the corresponding metadata in two different formats as shown in @fig-BioFormats2. This allows the user to explore the acquisition parameters and attach them as a .cvs technical metadata file when sharing the images in a repository. Also, this metadata is valuable when the user requires explicit calibration of parameters (pixel/image size, histogram scale, etc).
+
+FIJI offers a countless array of functions to perform image handling and analysis, which are thoroughly described in the software [user guide](https://imagej.net/ij/docs/index.html) but are out of the scope of the current chapter. The user can also user thrid-party pluigins like [BioVoxxel Toolbox](https://imagej.net/plugins/biovoxxel-toolbox) [@janbrocher2023] and [3D suite](https://mcib3d.frama.io/3d-suite-imagej/) [@ollion2013] or find support/tutorials for the use of different tools in YouTube channels like [Optical Microscopy: Image Processing and Analysis](https://www.youtube.com/@johanna.m.dela-cruz) by Johanna M. Dela Cruz.
+
+Although FIJI uses a comfortable and intuitive GUI, I recommend to use this software in [scripting/macro language](https://imagej.net/ij/developer/macro/macros.html). There are three main reason for this suggestion.
+
+-   Working with macros save a substantial amount of time when working with voluminous data sets by performing batch processing of files.
+
+-   A macro documents and allows a thorough follow-up of image handling and measurements performed on the image set. This ensures consistency in the process and allows reproducibility of the results. As a researchers, a macro is the best way to report how the images were handled. In THIS REPOSITORY, the user can find a collection of different FIJI macros.
+
+-   Macros are reusable, once tested they can be applied or tailored to different data sets.
+
+The following FIJI macro opens all. czi files in a folder defined by the user and saves .tif images in a destination folder "Images_Tiff".
+
+``` javascript
+dir = getDirectory("Choose a Directory ");
+list = getFileList(dir);
+run("Clear Results");
+for (n=0; n<list.length; n++) {
+	if (endsWith(list[n], ".tif")){	
+    	bf_in_str = "open=[" + dir + list[n] + "] autoscale color_mode=Colorized rois_import=[ROI manager] split_channels view=Hyperstack stack_order=XYCZT";
+    	run("Bio-Formats Importer", bf_in_str); 
+    	
+    	// For Klf4
+		selectWindow(list[n] + " - C=0");
+		bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Klf4";
+		saveAs("Tiff", bf_out_str);				
+				
+		// For PDGFR 
+		selectWindow(list[n] + " - C=1");
+		bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Pdgfrb";
+		saveAs("Tiff", bf_out_str);
+		
+		// For Dapi
+		selectWindow(list[n] + " - C=2");
+		bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Dapi";
+		saveAs("Tiff", bf_out_str);
+		
+		run("Close All");	
+		
+	   	
+  	}
+}  
+```
 
 To work with .czi files in Python, we can use the czifile library, which allows us to read and manipulate these files. Let's start by loading a .czi file and exploring its contents.
 
-Installing the czifile Library
-First, you need to install the czifile library. You can do this using pip:
+Installing the czifile Library First, you need to install the czifile library. You can do this using pip:
