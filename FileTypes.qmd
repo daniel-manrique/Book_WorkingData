@@ -1,4 +1,33 @@
-# Working with different file types
+# Working with different file types using software and python
+
+## setup
+
+Load reticulate and install miniconda
+
+```{r}
+library(reticulate)
+#install_miniconda()
+```
+
+Create an environment and load it
+
+```{r}
+# Create a new conda environment with a specific Python version
+#conda_create("r-reticulate", packages = "python=3.12")
+
+# Use the newly created conda environment
+use_condaenv("r-reticulate", required = TRUE)
+
+print(reticulate::py_config())
+
+```
+Install general packages
+
+```{r}
+#conda_install("numpy", "scipy")
+py_list_packages("r-reticulate")
+```
+
 
 ## Doing microscopy: .czi and .tiff files
 
@@ -39,32 +68,168 @@ dir = getDirectory("Choose a Directory ");
 list = getFileList(dir);
 run("Clear Results");
 for (n=0; n<list.length; n++) {
-	if (endsWith(list[n], ".tif")){	
-    	bf_in_str = "open=[" + dir + list[n] + "] autoscale color_mode=Colorized rois_import=[ROI manager] split_channels view=Hyperstack stack_order=XYCZT";
-    	run("Bio-Formats Importer", bf_in_str); 
-    	
-    	// For Klf4
-		selectWindow(list[n] + " - C=0");
-		bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Klf4";
-		saveAs("Tiff", bf_out_str);				
-				
-		// For PDGFR 
-		selectWindow(list[n] + " - C=1");
-		bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Pdgfrb";
-		saveAs("Tiff", bf_out_str);
-		
-		// For Dapi
-		selectWindow(list[n] + " - C=2");
-		bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Dapi";
-		saveAs("Tiff", bf_out_str);
-		
-		run("Close All");	
-		
-	   	
-  	}
+    if (endsWith(list[n], ".tif")){ 
+        bf_in_str = "open=[" + dir + list[n] + "] autoscale color_mode=Colorized rois_import=[ROI manager] split_channels view=Hyperstack stack_order=XYCZT";
+        run("Bio-Formats Importer", bf_in_str); 
+        
+        // For Klf4
+        selectWindow(list[n] + " - C=0");
+        bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Klf4";
+        saveAs("Tiff", bf_out_str);             
+                
+        // For PDGFR 
+        selectWindow(list[n] + " - C=1");
+        bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Pdgfrb";
+        saveAs("Tiff", bf_out_str);
+        
+        // For Dapi
+        selectWindow(list[n] + " - C=2");
+        bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Dapi";
+        saveAs("Tiff", bf_out_str);
+        
+        run("Close All");   
+        
+        
+    }
 }  
 ```
 
 To work with .czi files in Python, we can use the czifile library, which allows us to read and manipulate these files. Let's start by loading a .czi file and exploring its contents.
 
 Installing the czifile Library First, you need to install the czifile library. You can do this using pip:
+
+
+
+Metadata is data that describe data. In our case, is data that describe our images, and allows tracing of how images were acquired or how they have been modified. Metadata can include aspects such as authors, equipement, acquisition parameters, pixel size, location, etc. For scientific images, metadata also ensures reproducibility and interoperability.
+
+Here, we'll explore metadata from common image formats including TIFF, GEO-TIFF, OME-TIFF, DICOM, and .CZI
+
+### Working with .tiff files
+
+
+```{r}
+#py_install("tifffile")
+tifffile <- import("tifffile")
+```
+
+```{python}
+import tifffile
+```
+
+#### Extracting .tiff metadata with python:
+
+Tiff images use a metadata structured format called the Image File Directory (IFD). This format contains [tags](https://www.loc.gov/preservation/digital/formats/content/tiff_tags.shtml) with unique identifiers (TagID) representing metadata fields like color code, dimensions, compression method, pixel size, etc.
+
+To handle .tiff files we can use the `tifffile` library [@christophgohlke2024]
+
+First, we print all the metadata stored within the image
+
+```{r}
+
+#py_install("matplotlib")
+
+# Import the necessary Python modules
+tifffile <- import("tifffile")
+plt <- import("matplotlib.pyplot")
+
+```
+
+```{python}
+import numpy as np
+from matplotlib import pyplot as plt
+
+
+# Load the image using tifffile
+image_tiff = tifffile.imread('files/GT10x_M14_30D.tif')
+
+print(image_tiff.shape)
+
+# Select the first channel (e.g., channel 0) for display
+channel_0 = image_tiff[0, :, :]
+
+# Display the selected channel using matplotlib
+plt.imshow(channel_0, cmap='gray')
+plt.title("TIFF Image - Channel 0")
+plt.show()
+```
+
+
+```{python}
+
+# Open the TIFF file
+with tifffile.TiffFile('files/GT10x_M14_30D.tif') as tiff:
+    # Get the metadata
+    metadata = tiff.pages[0].tags
+
+    # Print all the metadata fields
+    for tag in metadata.values():
+        print(tag.name, tag.value)
+```
+
+
+Now, we can check which metadata is available to extact properties of interest. 
+
+```{python}
+image_tiff = tifffile.TiffFile('files/GT10x_M14_30D.tif') 
+attributes = dir(image_tiff.pages[0])
+print(attributes)
+```
+
+```{python}
+print("The descripton is:", image_tiff.pages[0].description)
+
+print("The bit depth:", image_tiff.pages[0].bitspersample)
+```
+
+
+## Medical images: .dcm (DICOM)
+
+First, we install and load the image using the `pydicom` library [@darcymason2023]
+
+```{r}
+#py_install("pydicom")
+pydicom <- import("pydicom")
+
+```
+
+
+```{python}
+from pydicom import dcmread
+```
+
+
+We load the image using the dcmread function
+
+```{python}
+
+Image_dicom = dcmread('files/Image_Dicom.dcm')
+```
+
+Now, we access and print the metadata. With this file type, we can call different standardized metadata. To see available tags please refer to the [DICOM Library](https://www.dicomlibrary.com/dicom/dicom-tags/)
+
+**Important note:** Take into consideration that this contains patient information and therefore, person identified data must be excluded or anonymized when handling .dicom files.
+
+```{python}
+print("DICOM Metadata:") 
+print(f"Patient Name: {Image_dicom.PatientName}") 
+print(f"Patient ID: {Image_dicom.PatientID}") 
+print(f"Modality: {Image_dicom.Modality}") 
+print(f"Image Type: {Image_dicom.ImageType}")
+```
+
+Next, let's plot the data
+
+```{python}
+from matplotlib import pyplot as plt
+
+image_array = Image_dicom.pixel_array 
+# Display the selected channel using matplotlib
+plt.imshow(image_array, cmap='gray')
+plt.title(".dcm image")
+plt.show()
+
+
+```
+
+
+## Satelite images .geotif
