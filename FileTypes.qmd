@@ -1,33 +1,44 @@
-# Working with different file types using software and python
+# Working with different file types using open source software, R and Python
 
-## setup
+Write an introduction
 
-Load reticulate and install miniconda
+## Setup a conda/Python environment in R-studio
+
+As this document is generated in R-studio/quarto, we need an special setup with the `reticulate` package [@reticulate] to run Python code. First, we need to install and load `reticulate`: Load reticulate and install miniconda
 
 ```{r}
+# install.packages("reticulate")
 library(reticulate)
-#install_miniconda()
 ```
 
-Create an environment and load it
+Next, we install miniconda and a conda environment (called r-reticulate) to facilitate the installation and loading of Python packages. This is not required when working only with R code. In this case, we install the environment with Python 3.12. When done, we can activate the environment using the `use_condaenv` function.
 
 ```{r}
+#install_miniconda()
+
 # Create a new conda environment with a specific Python version
 #conda_create("r-reticulate", packages = "python=3.12")
 
 # Use the newly created conda environment
 use_condaenv("r-reticulate", required = TRUE)
-
-print(reticulate::py_config())
-
 ```
-Install general packages
+
+We verify the installation and configuration by running:
 
 ```{r}
-#conda_install("numpy", "scipy")
-py_list_packages("r-reticulate")
+print(reticulate::py_config())
 ```
 
+### Install Python packages
+
+We need Python libraries for data handling and image visualization. This does not aim to be an exhaustive list of required libraries, but incorporates the essential ones for our purposes. We can use the `conda_install` function to setup the libraries we need in our environment. Finally, `py_list_packages` helps us to verify the libraries available in our environment.
+
+```{r}
+py_install(c("matplotlib", "numpy", "pydicom", "tifffile", "tqdm", "scipy"))
+py_install("files/pylibczirw-4.1.1-cp312-cp312-win_amd64.whl", pip = TRUE)
+py_install("pylibCZIrw", pip = TRUE)
+py_list_packages("r-reticulate")
+```
 
 ## Doing microscopy: .czi and .tiff files
 
@@ -35,11 +46,15 @@ py_list_packages("r-reticulate")
 
 Researchers doing microscopy in biology and other life sciences have the challenge of extracting accurate information from images. File formats, such as .czi and .tiff contain complex metadata and multi-dimensional image data the user can take advantage of. Here, we explore generalities on how to handle these microscopy file formats, including loading, plotting, exploring properties and metadata, and converting between formats using FIJI, Python and R.
 
-### Working with .czi files
+### Working with Carl Zeiss Image (.czi) files.
 
 Carl Zeiss Image (CZI) files are a common format used in microscopy to store image data along with a rich array of metadata. For complete handling of .czi files, Carl Zeiss Image have a proprietary software called Zen. The user can download a free *lite* version of this [software](https://www.zeiss.com/microscopy/en/products/software/zeiss-zen-lite.html?gad_source=1&gclid=Cj0KCQjw-uK0BhC0ARIsANQtgGM1rOCj1UdLxkHrZEtAv83kh2u12QfvYMkaJL9FMh_jhwK7Pp0ZZm0aAuj4EALw_wcB) to perform basic visualization task and explore the technical metadata, that is, the parameters employed to capture the image.
 
-However, [FIJI](https://imagej.net/software/fiji/) through the **Bio-Formats** plugin is a straight forward manner for handling .czi files. Drag and drop .czi files to the FIJI bar automatically calls the **Bio-Formats Importer** function to render the image.
+It is worth mentioning that proprietary formats, although not golds standard for open science, has certain advantages we must be aware of. First, these formats are tightly integrated with the instrument control software used to capture the image. This enables a smooth communication between the microscope hardware and software and ensures real-time adjustments during or post acquisition. Second, they facilitate the opening and exploration of the images in the parent software. Their efficient data store eneble the user navigate troght big images and visualize the multidimensional data (if available).In a way, this translates into advantages in speed and efficiency. Finally, the proprietary formats include specific information, accurate technical metadata that can be loss in other formats, such as instroment name and model, stage positions, and filter configurations.
+
+#### Opening .czi in FIJI
+
+[FIJI](https://imagej.net/software/fiji/) through the **Bio-Formats** plugin is a straightforward manner for handling .czi files. Drag and drop .czi files to the FIJI bar automatically calls the **Bio-Formats Importer** function to render the image.
 
 ::: {#fig-Fiji_Bioformats layout="[45,-10,45]"}
 ![Bio-Formtas Importer GUI](images/FileTypes/BioFormats_Import.png){#fig-BioFormats1}
@@ -51,6 +66,10 @@ Importing .czi files in FIJI
 
 By checking the *Display metadata* or *Display OME-XML metadta* the opening image will be accompanied by two windows displaying the corresponding metadata in two different formats as shown in @fig-BioFormats2. This allows the user to explore the acquisition parameters and attach them as a .cvs technical metadata file when sharing the images in a repository. Also, this metadata is valuable when the user requires explicit calibration of parameters (pixel/image size, histogram scale, etc).
 
+::: {.callout-note appearance="simple"}
+**Metadata** is data that describe data. In our case, is data that describe our images, and allows tracing of how images were acquired or how they have been modified. Metadata can include aspects such as authors, equipment, acquisition parameters, pixel size, location, etc. For scientific images, metadata also ensures reproducibility and interoperability.
+:::
+
 FIJI offers a countless array of functions to perform image handling and analysis, which are thoroughly described in the software [user guide](https://imagej.net/ij/docs/index.html) but are out of the scope of the current chapter. The user can also user thrid-party pluigins like [BioVoxxel Toolbox](https://imagej.net/plugins/biovoxxel-toolbox) [@janbrocher2023] and [3D suite](https://mcib3d.frama.io/3d-suite-imagej/) [@ollion2013] or find support/tutorials for the use of different tools in YouTube channels like [Optical Microscopy: Image Processing and Analysis](https://www.youtube.com/@johanna.m.dela-cruz) by Johanna M. Dela Cruz.
 
 Although FIJI uses a comfortable and intuitive GUI, I recommend to use this software in [scripting/macro language](https://imagej.net/ij/developer/macro/macros.html). There are three main reason for this suggestion.
@@ -61,101 +80,204 @@ Although FIJI uses a comfortable and intuitive GUI, I recommend to use this soft
 
 -   Macros are reusable, once tested they can be applied or tailored to different data sets.
 
-The following FIJI macro opens all. czi files in a folder defined by the user and saves .tif images in a destination folder "Images_Tiff".
+The following FIJI macro list and opens all .czi files in a folder defined by the user. With bio-formats, the channels are split (`split_channels`) and showed in colorized mode (`color_mode=Colorized`). Then, we save .tif images of the first channel (`list[n] + " - C=0`) in a destination folder "Images_Tiff" inside the selected folder, and asign the name of the original image.
 
 ``` javascript
+
 dir = getDirectory("Choose a Directory ");
 list = getFileList(dir);
 run("Clear Results");
 for (n=0; n<list.length; n++) {
-    if (endsWith(list[n], ".tif")){ 
+    if (endsWith(list[n], ".czi")){ 
         bf_in_str = "open=[" + dir + list[n] + "] autoscale color_mode=Colorized rois_import=[ROI manager] split_channels view=Hyperstack stack_order=XYCZT";
         run("Bio-Formats Importer", bf_in_str); 
         
-        // For Klf4
+        // For Channel 1
         selectWindow(list[n] + " - C=0");
-        bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Klf4";
+        bf_out_str = dir + "/Images_Tiff/"+ list[n];
         saveAs("Tiff", bf_out_str);             
                 
-        // For PDGFR 
-        selectWindow(list[n] + " - C=1");
-        bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Pdgfrb";
-        saveAs("Tiff", bf_out_str);
-        
-        // For Dapi
-        selectWindow(list[n] + " - C=2");
-        bf_out_str = dir + "/Images_Tiff/"+ list[n]  + "_Dapi";
-        saveAs("Tiff", bf_out_str);
-        
-        run("Close All");   
-        
-        
+        run("Close All");  
     }
 }  
 ```
 
-To work with .czi files in Python, we can use the czifile library, which allows us to read and manipulate these files. Let's start by loading a .czi file and exploring its contents.
+The result is a new folder populated with single channel .tif images, retaining the technical metadata from .czi images. See THIS YOUTUBE TUTORIAL for additional information.
 
-Installing the czifile Library First, you need to install the czifile library. You can do this using pip:
+#### Handling .czi images in Python
 
+We can use the `pylibCZIrw` [library](https://pypi.org/project/pylibCZIrw/) to visualize and handle .czi images in Python. Please note that, different to our previous R chunks, we are using now python language to execute this tasks. Now, we load the required libraries and the image path.  
 
+```{python}
+from pylibCZIrw import czi as pyczi
+from matplotlib import pyplot as plt
+import numpy as np
+import json
 
-Metadata is data that describe data. In our case, is data that describe our images, and allows tracing of how images were acquired or how they have been modified. Metadata can include aspects such as authors, equipement, acquisition parameters, pixel size, location, etc. For scientific images, metadata also ensures reproducibility and interoperability.
+image_czi_path = 'files/TnC-156B.czi'
+```
 
-Here, we'll explore metadata from common image formats including TIFF, GEO-TIFF, OME-TIFF, DICOM, and .CZI
+First, lets plot the images by channel, using a different color map just for the purpose of visualization. 
+
+```{python}
+#| label: fig-czi_plot
+
+# Read single channels
+with pyczi.open_czi(image_czi_path) as czidoc:
+    # define plane coordinates (by channel)
+    plane_0 = {'C': 0, 'Z': 0, 'T': 0}
+    plane_1 = {'C': 1, 'Z': 0, 'T': 0}
+    plane_2 = {'C': 2, 'Z': 0, 'T': 0}
+    plane_3 = {'C': 3, 'Z': 0, 'T': 0}
+
+    channel_0 = czidoc.read(plane=plane_0)
+    channel_1 = czidoc.read(plane=plane_1)
+    channel_2 = czidoc.read(plane=plane_2)
+    channel_3 = czidoc.read(plane=plane_3)
+
+# Prepare a plot
+fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+
+# Plot the first image on the first subplot
+axes[0,0].imshow(channel_0[:,:,0], cmap='inferno')
+axes[0,0].axis('off')
+
+# Plot the second image on the second subplot
+axes[0,1].imshow(channel_1[:,:,0], cmap='jet')
+axes[0,1].axis('off')
+
+# Plot the third image on the third subplot
+axes[1,0].imshow(channel_2[:,:,0], cmap='viridis')
+axes[1,0].axis('off')
+
+# Plot the third image on the fourth subplot
+axes[1,1].imshow(channel_3[:,:,0], cmap='gray')
+axes[0,1].axis('off')
+
+axes[1, 1].axis('off')
+
+# Select the layout
+fig.tight_layout()
+
+# Render the plot
+plt.show()
+```
+
+Interestingly, this library allow us to write .czi files, a feature we cannot achieve with FIJI. 
+
+##### PENDING WRITE .CZI
+
+#### Explore image metadata in Python 
+
+We can also use Python to explore the image metadata and properties. As these images carry numerous metadata fields, we can generate a .xml file to avoid printing this big object here. 
+
+```{python}
+# Output path for the metadata file
+metadata_output_path = os.path.join(os.getcwd(), "results/TnC-156B_metadata.xml")
+
+# Read the metadata and save it to a file
+with pyczi.open_czi(image_czi_path) as czidoc:
+    # Get the raw metadata as XML
+    md_xml = czidoc.raw_metadata
+    
+    # Save the metadata to a file
+    with open(metadata_output_path, 'w') as f:
+        f.write(md_xml)
+
+print(f'Metadata saved to: {metadata_output_path}')
+```
+On the other hand, we can plot specific metadata related to the imaged channels:
+
+```{python}
+with pyczi.open_czi(image_czi_path) as czidoc:
+    # get the raw metadata as a dictionary
+    md_dict = czidoc.metadata
+
+    # Print something specific, like the channel information
+    print(json.dumps(md_dict["ImageDocument"]["Metadata"]["DisplaySetting"]["Channels"], sort_keys=False, indent=4))
+    print("__________________________________________")
+    print("Dye Name for channel 0: ", json.dumps(md_dict["ImageDocument"]["Metadata"]["DisplaySetting"]["Channels"]["Channel"][0]["DyeName"], sort_keys=False, indent=4))
+```
 
 ### Working with .tiff files
 
+Tagged Image File Format (TIFF) is the most widely-used image format in scientific imaging. It is considered the  standard format given its quality, flexibility, and wide support. Tiff images preserve high fidelity, diverse color spaces (such as RGB, CMYK, and grayscale), multiple layers (z-stacks, time series), a wide range of bit depths (from 1-bit to 32-bits per channel), and various compression methods, including lossless options like LZW and ZIP. Like .czi, tiff files store metadata within the image file.As shown previously, converting proprietary files like .czi to .tiff is a recommended practice to share image files.  
 
-```{r}
-#py_install("tifffile")
-tifffile <- import("tifffile")
-```
+Tiff images are easy opened in Fiji by drag and drop. The user can check the metadata in Image > Show Info. Comparing the displayed info to the one of .czi files reveals the loss of metadata when converting between the two formats. Nonetheless, the main aspects, at least in microscopy, are reliably preserved (see @fig-tiff_metadata)
 
-```{python}
-import tifffile
-```
 
-#### Extracting .tiff metadata with python:
+::: {#fig-tiff_metadata layout-ncol=1}
 
-Tiff images use a metadata structured format called the Image File Directory (IFD). This format contains [tags](https://www.loc.gov/preservation/digital/formats/content/tiff_tags.shtml) with unique identifiers (TagID) representing metadata fields like color code, dimensions, compression method, pixel size, etc.
+![](images/FileTypes/Tiff_Metadata.png)
+Tiff metadata displayed in FIJI
 
-To handle .tiff files we can use the `tifffile` library [@christophgohlke2024]
+:::
 
-First, we print all the metadata stored within the image
 
-```{r}
+#### Handling .tiff images in Python
 
-#py_install("matplotlib")
-
-# Import the necessary Python modules
-tifffile <- import("tifffile")
-plt <- import("matplotlib.pyplot")
-
-```
+We can use the `tifffile` library [@christophgohlke2024]`pylibCZIrw` to handle images in Python. As customary, we load the required libraries and the image path.  
 
 ```{python}
 import numpy as np
 from matplotlib import pyplot as plt
+import tifffile
+```
 
+Next, we call the image using the `imread` function:
 
+```{python}
 # Load the image using tifffile
 image_tiff = tifffile.imread('files/GT10x_M14_30D.tif')
 
+# Check image shape
 print(image_tiff.shape)
-
-# Select the first channel (e.g., channel 0) for display
-channel_0 = image_tiff[0, :, :]
-
-# Display the selected channel using matplotlib
-plt.imshow(channel_0, cmap='gray')
-plt.title("TIFF Image - Channel 0")
-plt.show()
 ```
-
+We see that this is a 4 channel image with dimensions of 1460 x 3570. We can plot the individual channels to verify the image content.
 
 ```{python}
 
+# Select channelsfor display
+channel_0 = image_tiff[0, :, :]
+channel_1 = image_tiff[1, :, :]
+channel_2 = image_tiff[2, :, :]
+channel_3 = image_tiff[3, :, :]
+
+# Prepare a plot
+fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+
+# Plot the first image on the first subplot
+axes[0, 0].imshow(channel_0, cmap='inferno')
+axes[0, 0].set_title('NeuN')
+axes[0, 0].axis('off')
+
+# Plot the second image on the second subplot
+axes[0, 1].imshow(channel_1, cmap='jet')
+axes[0, 1].set_title('IBA1')
+axes[0, 1].axis('off')
+
+# Plot the third image on the third subplot
+axes[1, 0].imshow(channel_2, cmap='viridis')
+axes[1, 0].set_title('GFAP')
+axes[1, 0].axis('off')
+
+# Plot the fourth image on the fourth subplot
+axes[1, 1].imshow(channel_3, cmap='gray')
+axes[1, 1].set_title('DAPI')
+axes[1, 1].axis('off')
+
+# Select the layout
+fig.tight_layout()
+
+# Render the plot
+plt.show()
+```
+
+#### Extracting .tiff metadata with python:
+
+Tiff images use a metadata structured format called the Image File Directory (IFD). This format contains [tags](https://www.loc.gov/preservation/digital/formats/content/tiff_tags.shtml) with unique identifiers (TagID) representing metadata fields like color code, dimensions, compression method, pixel size, etc. We can print the compplete metadata available in the image:
+
+```{python}
 # Open the TIFF file
 with tifffile.TiffFile('files/GT10x_M14_30D.tif') as tiff:
     # Get the metadata
@@ -166,42 +288,43 @@ with tifffile.TiffFile('files/GT10x_M14_30D.tif') as tiff:
         print(tag.name, tag.value)
 ```
 
-
-Now, we can check which metadata is available to extact properties of interest. 
+We can also check/select specific metadata fields: 
 
 ```{python}
 image_tiff = tifffile.TiffFile('files/GT10x_M14_30D.tif') 
 attributes = dir(image_tiff.pages[0])
 print(attributes)
 ```
+Here, we plot some specific metadata fields:
 
 ```{python}
 print("The descripton is:", image_tiff.pages[0].description)
-
 print("The bit depth:", image_tiff.pages[0].bitspersample)
 ```
 
 
-## Medical images: .dcm (DICOM)
 
-First, we install and load the image using the `pydicom` library [@darcymason2023]
 
-```{r}
-#py_install("pydicom")
-pydicom <- import("pydicom")
+## Medical imaging: .dcm (DICOM) files
 
-```
+Digital Imaging and Communications in Medicine (DICOM) is the standard format for store and share medical images with their respective metadata. This format was developed by the National Electrical Manufacturers Association (NEMA) and the American College of Radiology (ACR) in the early 1980s, and has become the backbone of medical imaging since. DICOM encompases a file format and a network protocol to standardize medical images formatting and exchange, ensuring in this way compatibility across different imaging devices and healthcare systems.It commonly used in fields like radiology, cardiology and oncology, and can encompass medical imaging from all body organs. 
 
+FIJI can open .dcm file by drag and drop and display the standardized metadata by Image > Show Info. However, alternative free software like [MicroDicom](https://www.microdicom.com/) does a better job handling this images. This software has a GUI that allows visualization, measurement and display of metadata information (View > DICOM tags) in an interactive manner. The dictionary of metadata tags is available in https://www.dicomlibrary.com/dicom/dicom-tags/.
+
+::: {#fig-tiff_metadata layout-ncol=1}
+
+![](images/FileTypes/Dicom_Metadata2.png)
+MicroDicom interface: Image visualization and metadata
+
+:::
+
+VOY AQUI
+#### Handling .dcm images in Python
+
+We can handle .dcm files in Python using the `pydicom` library [@darcymason2023] (https://pydicom.github.io/). We load the library and load an image using the `dcmread` function.
 
 ```{python}
 from pydicom import dcmread
-```
-
-
-We load the image using the dcmread function
-
-```{python}
-
 Image_dicom = dcmread('files/Image_Dicom.dcm')
 ```
 
@@ -227,9 +350,6 @@ image_array = Image_dicom.pixel_array
 plt.imshow(image_array, cmap='gray')
 plt.title(".dcm image")
 plt.show()
-
-
 ```
 
-
-## Satelite images .geotif
+## Looking from the sky: .geotif images
